@@ -59,6 +59,11 @@ export interface RegisterRequest {
 
 export type LoginRequest = RegisterRequest;
 
+export interface ChangePasswordRequest {
+  old_encrypted_password: string;
+  new_encrypted_password: string;
+}
+
 export interface CreateProjectRequest {
   id?: string;
   name: string;

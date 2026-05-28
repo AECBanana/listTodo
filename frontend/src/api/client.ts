@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   AuthResponse,
+  ChangePasswordRequest,
   CreateProjectRequest,
   CreateTagRequest,
   CreateTaskRequest,
@@ -72,6 +73,15 @@ export async function login(body: LoginRequest): Promise<AuthResponse> {
 
 export async function updateProfile(body: { avatar?: string }): Promise<User> {
   return request<User>("/auth/profile", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function changePassword(
+  body: ChangePasswordRequest,
+): Promise<{ message: string }> {
+  return request<{ message: string }>("/auth/password", {
     method: "PATCH",
     body: JSON.stringify(body),
   });

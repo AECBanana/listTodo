@@ -20,7 +20,13 @@ impl IntoResponse for AppError {
             AppError::NotFound(m) => (StatusCode::NOT_FOUND, m),
             AppError::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
             AppError::Unauthorized(m) => (StatusCode::UNAUTHORIZED, m),
-            AppError::Database(m) => (StatusCode::INTERNAL_SERVER_ERROR, m),
+            AppError::Database(m) => {
+                tracing::error!("数据库错误: {}", m);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "服务器内部错误".to_string(),
+                )
+            }
         };
         (status, Json(ApiResponse::<()>::err(msg))).into_response()
     }
@@ -28,19 +34,22 @@ impl IntoResponse for AppError {
 
 impl From<diesel::result::Error> for AppError {
     fn from(e: diesel::result::Error) -> Self {
-        AppError::Database(e.to_string())
+        tracing::error!("Diesel error: {:?}", e);
+        AppError::Database("database error".into())
     }
 }
 
 impl From<diesel::r2d2::Error> for AppError {
     fn from(e: diesel::r2d2::Error) -> Self {
-        AppError::Database(e.to_string())
+        tracing::error!("r2d2 pool error: {:?}", e);
+        AppError::Database("database connection error".into())
     }
 }
 
 impl From<r2d2::Error> for AppError {
     fn from(e: r2d2::Error) -> Self {
-        AppError::Database(e.to_string())
+        tracing::error!("r2d2 error: {:?}", e);
+        AppError::Database("database connection error".into())
     }
 }
 

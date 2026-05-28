@@ -377,6 +377,13 @@ pub struct RegisterRequest {
 /// 登录请求与注册相同
 pub type LoginRequest = RegisterRequest;
 
+/// 修改密码请求：旧密码 + 新密码（均为 RSA 加密后的 base64）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub old_encrypted_password: String,
+    pub new_encrypted_password: String,
+}
+
 /// 服务端返回的公钥（PEM 格式）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PubkeyResponse {

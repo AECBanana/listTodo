@@ -30,7 +30,7 @@ fn jwt_secret() -> &'static str {
 
 pub fn create_token(user_id: Uuid, username: &str) -> Result<String, jsonwebtoken::errors::Error> {
     let exp = chrono::Utc::now()
-        .checked_add_signed(chrono::Duration::days(30))
+        .checked_add_signed(chrono::Duration::hours(24))
         .expect("valid timestamp")
         .timestamp() as usize;
 
@@ -40,18 +40,25 @@ pub fn create_token(user_id: Uuid, username: &str) -> Result<String, jsonwebtoke
         exp,
     };
 
+    let mut header = Header::default();
+    header.alg = jsonwebtoken::Algorithm::HS256;
+
     encode(
-        &Header::default(),
+        &header,
         &claims,
         &EncodingKey::from_secret(jwt_secret().as_bytes()),
     )
 }
 
 pub fn verify_token(token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let mut validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+    validation.validate_exp = true;
+    validation.required_spec_claims.clear(); // 不强制 aud/iss，但固定算法
+
     decode::<Claims>(
         token,
         &DecodingKey::from_secret(jwt_secret().as_bytes()),
-        &Validation::default(),
+        &validation,
     )
     .map(|d| d.claims)
 }

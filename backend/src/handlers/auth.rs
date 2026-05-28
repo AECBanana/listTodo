@@ -2,7 +2,10 @@ use axum::{extract::State, routing, Json, Router};
 use diesel::prelude::*;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use shared::{ApiResponse, AuthResponse, LoginRequest, PubkeyResponse, RegisterRequest, User};
+use shared::{
+    ApiResponse, AuthResponse, ChangePasswordRequest, LoginRequest, PubkeyResponse,
+    RegisterRequest, User,
+};
 
 use crate::auth;
 use crate::db::DbPool;
@@ -22,6 +25,7 @@ pub fn router() -> Router<DbPool> {
         .route("/register", routing::post(register))
         .route("/login", routing::post(login))
         .route("/profile", routing::patch(update_profile))
+        .route("/password", routing::patch(change_password))
 }
 
 // GET /api/auth/pubkey — 前端获取公钥
@@ -31,9 +35,12 @@ async fn pubkey() -> Json<ApiResponse<PubkeyResponse>> {
     }))
 }
 
-/// 密码处理：RSA 解密 → SHA-256 → bcrypt
+/// 密码处理：RSA 解密 → 长度校验 → SHA-256 → bcrypt
 fn process_password(encrypted_b64: &str) -> Result<String, AppError> {
     let plain = auth::decrypt_password(encrypted_b64).map_err(|e| AppError::BadRequest(e))?;
+    if plain.len() < 6 {
+        return Err(AppError::BadRequest("密码长度不能少于6位".into()));
+    }
     Ok(hex::encode(Sha256::digest(plain.as_bytes())))
 }
 
@@ -49,21 +56,12 @@ async fn register(
         return Err(AppError::BadRequest("用户名长度需在3-32个字符之间".into()));
     }
 
-    let mut conn = pool.get()?;
-
-    let exists: bool = diesel::select(diesel::dsl::exists(
-        users::table.filter(users::username.eq(&req.username)),
-    ))
-    .get_result(&mut conn)?;
-    if exists {
-        return Err(AppError::BadRequest("用户名已存在".into()));
-    }
-
     // RSA 解密 → SHA-256 → bcrypt
     let sha256 = process_password(&req.encrypted_password)?;
     let password_hash = bcrypt::hash(&sha256, bcrypt::DEFAULT_COST)
         .map_err(|_| AppError::Database("密码加密失败".into()))?;
 
+    let mut conn = pool.get()?;
     // 检查注册开关
     let user_count: i64 = users::table.count().get_result(&mut conn)?;
     let registration_open: String = server_settings::table
@@ -82,10 +80,24 @@ async fn register(
         role: role.into(),
     };
 
-    let row: UserRow = diesel::insert_into(users::table)
-        .values(&new_user)
-        .returning(UserRow::as_returning())
-        .get_result(&mut conn)?;
+    // 事务内 insert，利用数据库 UNIQUE 约束防 TOCTOU 竞争
+    let result: Result<UserRow, diesel::result::Error> = conn.transaction(|conn| {
+        diesel::insert_into(users::table)
+            .values(&new_user)
+            .returning(UserRow::as_returning())
+            .get_result(conn)
+    });
+
+    let row = match result {
+        Ok(row) => row,
+        Err(diesel::result::Error::DatabaseError(
+            diesel::result::DatabaseErrorKind::UniqueViolation,
+            _,
+        )) => {
+            return Err(AppError::BadRequest("用户名已存在".into()));
+        }
+        Err(e) => return Err(AppError::from(e)),
+    };
 
     let user: User = row.into();
     tracing::info!("用户注册成功: {} (role={})", user.username, user.role);
@@ -124,6 +136,47 @@ async fn login(
         .map_err(|_| AppError::Database("Token 生成失败".into()))?;
 
     Ok(Json(ApiResponse::ok(AuthResponse { token, user })))
+}
+
+// PATCH /api/auth/password
+async fn change_password(
+    State(pool): State<DbPool>,
+    AuthUser(user_id): AuthUser,
+    Json(req): Json<ChangePasswordRequest>,
+) -> AppResult<Json<ApiResponse<serde_json::Value>>> {
+    let mut conn = pool.get()?;
+
+    let row: UserRow = users::table
+        .find(user_id)
+        .first(&mut conn)
+        .optional()?
+        .ok_or_else(|| AppError::NotFound("用户不存在".into()))?;
+
+    // 验证旧密码
+    let old_sha256 = process_password(&req.old_encrypted_password)?;
+    let valid = bcrypt::verify(&old_sha256, &row.password_hash).unwrap_or(false);
+    if !valid {
+        return Err(AppError::BadRequest("旧密码不正确".into()));
+    }
+
+    // 新密码
+    let new_password_hash = process_password(&req.new_encrypted_password)?;
+    let new_hash = bcrypt::hash(&new_password_hash, bcrypt::DEFAULT_COST)
+        .map_err(|_| AppError::Database("密码加密失败".into()))?;
+
+    // 不允许新旧密码相同
+    if old_sha256 == new_password_hash {
+        return Err(AppError::BadRequest("新密码不能与旧密码相同".into()));
+    }
+
+    diesel::update(users::table.filter(users::id.eq(user_id)))
+        .set(users::password_hash.eq(&new_hash))
+        .execute(&mut conn)?;
+
+    tracing::info!("用户 {} 修改密码成功", row.username);
+    Ok(Json(ApiResponse::ok(
+        serde_json::json!({"message": "密码修改成功"}),
+    )))
 }
 
 // PATCH /api/auth/profile

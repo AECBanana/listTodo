@@ -12,7 +12,7 @@ use crate::error::{AppError, AppResult};
 use crate::middleware::AuthUser;
 use crate::models::{NewTag, TagRow};
 use crate::schema::deleted_entities as de;
-use crate::schema::{tags, tasks};
+use crate::schema::tags;
 
 pub fn router() -> Router<DbPool> {
     Router::new()
@@ -99,17 +99,14 @@ async fn update(
         if dup {
             return Err(AppError::BadRequest("标签名称已存在".into()));
         }
-        // 更新任务中的标签名
-        let old_name = tag_row.name.replace("'", "''");
-        let new_name = name.replace("'", "''");
-        diesel::update(tasks::table.filter(tasks::user_id.eq(user_id)))
-            .set(tasks::tags.eq(diesel::dsl::sql::<
-                diesel::sql_types::Array<diesel::sql_types::Nullable<diesel::sql_types::Text>>,
-            >(&format!(
-                "array_replace(tags, '{}', '{}')",
-                old_name, new_name
-            ))))
+
+        // 使用参数化 SQL 更新任务中的标签名
+        diesel::sql_query("UPDATE tasks SET tags = array_replace(tags, $1, $2) WHERE user_id = $3")
+            .bind::<diesel::sql_types::Text, _>(&tag_row.name)
+            .bind::<diesel::sql_types::Text, _>(name)
+            .bind::<diesel::sql_types::Uuid, _>(user_id)
             .execute(&mut conn)?;
+
         diesel::update(
             tags::table
                 .filter(tags::user_id.eq(user_id))
@@ -151,8 +148,6 @@ async fn delete(
         .optional()?
         .ok_or_else(|| AppError::NotFound("标签不存在".into()))?;
 
-    let tag_name = tag_row.name.replace("'", "''");
-
     let deleted = diesel::delete(
         tags::table
             .filter(tags::user_id.eq(user_id))
@@ -174,13 +169,12 @@ async fn delete(
         .do_nothing()
         .execute(&mut conn)?;
 
-    // 从所有引用该标签的任务中移除
-    diesel::update(tasks::table.filter(tasks::user_id.eq(user_id)))
-        .set(tasks::tags.eq(diesel::dsl::sql::<
-            diesel::sql_types::Array<diesel::sql_types::Nullable<diesel::sql_types::Text>>,
-        >(&format!("array_remove(tags, '{}')", tag_name))))
+    // 使用参数化 SQL 从所有引用该标签的任务中移除
+    diesel::sql_query("UPDATE tasks SET tags = array_remove(tags, $1) WHERE user_id = $2")
+        .bind::<diesel::sql_types::Text, _>(&tag_row.name)
+        .bind::<diesel::sql_types::Uuid, _>(user_id)
         .execute(&mut conn)?;
 
-    tracing::info!("标签删除: {} (user={})", tag_name, user_id);
+    tracing::info!("标签删除: {} (user={})", tag_row.name, user_id);
     Ok(StatusCode::NO_CONTENT)
 }

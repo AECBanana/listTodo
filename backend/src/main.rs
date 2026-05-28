@@ -6,10 +6,13 @@ mod middleware;
 mod models;
 mod schema;
 
+use axum::http::HeaderValue;
 use axum::Router;
 use diesel_migrations::{FileBasedMigrations, MigrationHarness};
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::limit::RequestBodyLimitLayer;
+use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber;
 
@@ -33,13 +36,30 @@ async fn main() -> anyhow::Result<()> {
         .expect("数据库迁移失败");
     drop(conn);
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let allowed_origins: Vec<HeaderValue> = std::env::var("CORS_ORIGINS")
+        .unwrap_or_else(|_| "http://localhost:5173,http://localhost:1420,tauri://localhost".into())
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+
+    let cors = if allowed_origins.is_empty() {
+        CorsLayer::permissive()
+    } else {
+        CorsLayer::new()
+            .allow_origin(allowed_origins)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    };
 
     let app = Router::new()
         .nest("/api", handlers::router())
+        .layer(SetResponseHeaderLayer::if_not_present(
+            axum::http::header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:;",
+            ),
+        ))
+        .layer(RequestBodyLimitLayer::new(5 * 1024 * 1024)) // 5 MB
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .with_state(pool);

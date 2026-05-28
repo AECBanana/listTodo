@@ -2,9 +2,17 @@ import "github-markdown-css/github-markdown.css";
 import { Show, createSignal, onMount } from "solid-js";
 import { store } from "../store";
 import * as api from "../api/client";
-import { Trash2, BrainCircuit, Eye, EyeOff } from "lucide-solid";
+import {
+  Trash2,
+  BrainCircuit,
+  Eye,
+  EyeOff,
+  Lock,
+  ShieldCheck,
+} from "lucide-solid";
 import pkg from "../../package.json";
 import { getAgentSettings, saveAgentSettings } from "../api/agent";
+import { JSEncrypt } from "jsencrypt";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "管理员",
@@ -96,6 +104,7 @@ export default function SettingsPanel() {
                 : "-"}
             </p>
             <p class="settings-desc settings-uuid">UUID：{user()?.id}</p>
+            <ChangePassword />
           </div>
         </Show>
 
@@ -407,6 +416,238 @@ function ThemeSettings() {
             }}
             style="width:100%"
           />
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+// ============================================================
+// 修改密码
+// ============================================================
+function ChangePassword() {
+  const [showForm, setShowForm] = createSignal(false);
+  const [oldPassword, setOldPassword] = createSignal("");
+  const [newPassword, setNewPassword] = createSignal("");
+  const [confirmPassword, setConfirmPassword] = createSignal("");
+  const [msg, setMsg] = createSignal("");
+  const [msgOk, setMsgOk] = createSignal(true);
+  const [loading, setLoading] = createSignal(false);
+  const [showOld, setShowOld] = createSignal(false);
+  const [showNew, setShowNew] = createSignal(false);
+  const [showConfirm, setShowConfirm] = createSignal(false);
+
+  function reset() {
+    setOldPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setMsg("");
+    setShowForm(false);
+  }
+
+  async function handleChange() {
+    setMsg("");
+    const oldP = oldPassword();
+    const newP = newPassword();
+    const confirmP = confirmPassword();
+
+    if (!oldP || !newP || !confirmP) {
+      setMsgOk(false);
+      setMsg("请填写所有密码字段");
+      return;
+    }
+    if (newP.length < 6) {
+      setMsgOk(false);
+      setMsg("新密码长度不能少于 6 位");
+      return;
+    }
+    if (newP !== confirmP) {
+      setMsgOk(false);
+      setMsg("两次输入的新密码不一致");
+      return;
+    }
+    if (oldP === newP) {
+      setMsgOk(false);
+      setMsg("新密码不能与旧密码相同");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const pubResp = await api.getPubkey();
+      const encrypt = new JSEncrypt();
+      encrypt.setPublicKey(pubResp.public_key);
+
+      const oldEncrypted = encrypt.encrypt(oldP);
+      const newEncrypted = encrypt.encrypt(newP);
+      if (!oldEncrypted || !newEncrypted) {
+        setMsgOk(false);
+        setMsg("密码加密失败，请重试");
+        setLoading(false);
+        return;
+      }
+
+      await api.changePassword({
+        old_encrypted_password: oldEncrypted,
+        new_encrypted_password: newEncrypted,
+      });
+
+      setMsgOk(true);
+      setMsg("密码修改成功");
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setMsgOk(false);
+      setMsg(err.message ?? "修改失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      class="settings-content"
+      style="text-align: left; padding: 20px; margin-top: 24px;"
+    >
+      <div
+        style={{
+          background: "var(--card-bg)",
+          border: "1px solid var(--border)",
+          "border-radius": "var(--radius)",
+          padding: "20px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            "align-items": "center",
+            gap: "10px",
+            "margin-bottom": "12px",
+          }}
+        >
+          <div
+            style={{
+              width: "36px",
+              height: "36px",
+              "border-radius": "8px",
+              background: "#22c55e18",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "center",
+            }}
+          >
+            <ShieldCheck size={18} color="#22c55e" />
+          </div>
+          <div>
+            <div style="font-size: 14px; font-weight: 600;">账号安全</div>
+          </div>
+        </div>
+
+        <button
+          class="save-btn"
+          onClick={() => setShowForm(true)}
+          style="display: flex; align-items: center; gap: 6px"
+        >
+          <Lock size={16} />
+          修改密码
+        </button>
+      </div>
+
+      <Show when={showForm()}>
+        <div class="modal-overlay" onClick={reset}>
+          <div class="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>修改密码</h2>
+
+            <div class="form-group">
+              <label>旧密码</label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input
+                  type={showOld() ? "text" : "password"}
+                  placeholder="输入旧密码"
+                  value={oldPassword()}
+                  onInput={(e) => setOldPassword(e.currentTarget.value)}
+                  autocomplete="current-password"
+                />
+                <button
+                  class="header-icon-btn"
+                  onClick={() => setShowOld(!showOld())}
+                  title={showOld() ? "隐藏" : "显示"}
+                >
+                  <Show when={showOld()} fallback={<Eye size={16} />}>
+                    <EyeOff size={16} />
+                  </Show>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>新密码</label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input
+                  type={showNew() ? "text" : "password"}
+                  placeholder="输入新密码（至少 6 位）"
+                  value={newPassword()}
+                  onInput={(e) => setNewPassword(e.currentTarget.value)}
+                  autocomplete="new-password"
+                />
+                <button
+                  class="header-icon-btn"
+                  onClick={() => setShowNew(!showNew())}
+                  title={showNew() ? "隐藏" : "显示"}
+                >
+                  <Show when={showNew()} fallback={<Eye size={16} />}>
+                    <EyeOff size={16} />
+                  </Show>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>确认新密码</label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input
+                  type={showConfirm() ? "text" : "password"}
+                  placeholder="再次输入新密码"
+                  value={confirmPassword()}
+                  onInput={(e) => setConfirmPassword(e.currentTarget.value)}
+                  autocomplete="new-password"
+                />
+                <button
+                  class="header-icon-btn"
+                  onClick={() => setShowConfirm(!showConfirm())}
+                  title={showConfirm() ? "隐藏" : "显示"}
+                >
+                  <Show when={showConfirm()} fallback={<Eye size={16} />}>
+                    <EyeOff size={16} />
+                  </Show>
+                </button>
+              </div>
+            </div>
+
+            {msg() && (
+              <p
+                style={`margin: 8px 0 0; font-size: 13px; color: ${
+                  msgOk() ? "var(--success, #22c55e)" : "var(--danger, #ef4444)"
+                }`}
+              >
+                {msg()}
+              </p>
+            )}
+
+            <div class="modal-actions">
+              <button class="icon-btn" onClick={reset} disabled={loading()}>
+                取消
+              </button>
+              <button
+                class="btn-primary"
+                onClick={handleChange}
+                disabled={loading()}
+              >
+                {loading() ? "提交中..." : "确认修改"}
+              </button>
+            </div>
+          </div>
         </div>
       </Show>
     </div>
