@@ -1,0 +1,238 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ═══════════════════════════════════════════
+  #  版本号 — 日期格式 YYYY.MMDD.BUILD
+  # ═══════════════════════════════════════════
+  version:
+    name: Generate version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: ver
+        run: |
+          BASE=$(date -u +%Y.%m%d)
+
+          # 查找当天已有的 tag 数量作为 BUILD 号
+          TODAY_TAGS=$(git tag -l "v${BASE}.*" | wc -l)
+          BUILD=$TODAY_TAGS
+
+          VERSION="${BASE}.${BUILD}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Generated version: ${VERSION}"
+
+      - name: Write version to files
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+
+          # frontend/package.json
+          jq --arg v "$V" '.version = $v' frontend/package.json > tmp.json && mv tmp.json frontend/package.json
+
+          # src-tauri/Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"$V\"/" src-tauri/Cargo.toml
+
+          # backend/Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"$V\"/" backend/Cargo.toml
+
+          # tauri.conf.json
+          jq --arg v "$V" '.version = $v' src-tauri/tauri.conf.json > tmp.json && mv tmp.json src-tauri/tauri.conf.json
+
+      - name: Upload patched files
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-sources
+          path: |
+            frontend/package.json
+            src-tauri/Cargo.toml
+            backend/Cargo.toml
+            src-tauri/tauri.conf.json
+          retention-days: 1
+
+  # ═══════════════════════════════════════════
+  #  桌面端 — Windows / macOS / Linux
+  # ═══════════════════════════════════════════
+  tauri:
+    name: Tauri (${{ matrix.target }})
+    needs: [version]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: deb
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: msi
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: dmg
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: patched-sources
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
+
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "RinoTodo ${{ github.ref_name }}"
+          releaseBody: "见 [CHANGELOG.md](./CHANGELOG.md)"
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+
+  # ═══════════════════════════════════════════
+  #  后端 — Linux 二进制
+  # ═══════════════════════════════════════════
+  backend:
+    name: Backend (Linux x86_64)
+    needs: [version]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: patched-sources
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release
+        run: cargo build -p backend --release
+
+      - name: Package
+        run: |
+          mkdir -p release
+          cp target/release/backend release/rinotodo-server
+          cp -r backend/migrations release/migrations
+          cp backend/.env.example release/.env.example
+          tar -czf rinotodo-server-linux-x86_64.tar.gz -C release .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-linux-x86_64
+          path: rinotodo-server-linux-x86_64.tar.gz
+
+  # ═══════════════════════════════════════════
+  #  前端 — 静态 Web 应用
+  # ═══════════════════════════════════════════
+  frontend:
+    name: Frontend (Web)
+    needs: [version]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: patched-sources
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install & build
+        run: |
+          npm ci
+          npm run build
+        working-directory: frontend
+
+      - name: Package
+        run: |
+          cd frontend/dist
+          zip -r ../../rinotodo-web.zip .
+
+      - name: Deploy to FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: frontend/dist/
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
+          dangerous-clean-slate: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: rinotodo-web.zip
+
+  # ═══════════════════════════════════════════
+  #  汇总 — 把非 Tauri 产物挂到 Release
+  # ═══════════════════════════════════════════
+  attach-extras:
+    name: Attach extras to Release
+    needs: [tauri, backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload to Release
+        run: |
+          set -e
+          for f in artifacts/server-linux-x86_64/rinotodo-server-linux-x86_64.tar.gz \
+                   artifacts/web-dist/rinotodo-web.zip; do
+            gh release upload "${{ github.ref_name }}" "$f" --clobber
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,8 +1,19 @@
 import { defineConfig } from "vite";
 import solid from "vite-plugin-solid";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig({
-  plugins: [solid()],
+  plugins: [
+    solid(),
+    viteStaticCopy({
+      targets: [
+        {
+          src: "CHANGELOG.md",
+          dest: ".",
+        },
+      ],
+    }),
+  ],
   server: {
     port: 1420,
     proxy: {
