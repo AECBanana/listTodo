@@ -100,7 +100,7 @@ export default function AuthPage() {
       <div class="auth-hero">
         <div class="auth-hero-brand">
           <ClipboardList size={44} strokeWidth={1.5} class="auth-hero-icon" />
-          <h1 class="auth-hero-title">ListTodo</h1>
+          <h1 class="auth-hero-title">RinoTodo</h1>
           <p class="auth-hero-sub">简洁高效的待办清单，让每一天都有条不紊</p>
         </div>
         <div class="auth-highlights">

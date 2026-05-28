@@ -1,6 +1,6 @@
 [package]
-name = "listtodo-tauri"
-version = "0.1.0"
+name = "rinotodo-tauri"
+version = "20260528.0"
 edition = "2021"
 
 [dependencies]

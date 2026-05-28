@@ -2232,7 +2232,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "listtodo-tauri"
+name = "rinotodo-tauri"
 version = "0.1.0"
 dependencies = [
  "serde",

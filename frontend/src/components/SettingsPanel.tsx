@@ -1,4 +1,5 @@
-import { Show, createSignal } from "solid-js";
+import "github-markdown-css/github-markdown.css";
+import { Show, createSignal, onMount } from "solid-js";
 import { store } from "../store";
 import * as api from "../api/client";
 import { Trash2, BrainCircuit, Eye, EyeOff } from "lucide-solid";
@@ -117,11 +118,15 @@ export default function SettingsPanel() {
 
         <Show when={store.settingsTab() === "about"}>
           <div class="settings-content">
-            <h2>ListTodo</h2>
+            <h2>RinoTodo</h2>
             <p class="settings-desc">一个简洁高效的待办清单应用</p>
             <p class="settings-desc" style="color: var(--text-secondary)">
               版本 {pkg.version}
             </p>
+
+            <div style="font-size: 13px; line-height: 1.7; color: var(--text-secondary); max-height: 320px; overflow-y: auto;">
+              <Changelog />
+            </div>
           </div>
         </Show>
       </div>
@@ -406,4 +411,21 @@ function ThemeSettings() {
       </Show>
     </div>
   );
+}
+
+function Changelog() {
+  const [html, setHtml] = createSignal("");
+
+  onMount(async () => {
+    try {
+      const { marked } = await import("marked");
+      const res = await fetch("/CHANGELOG.md");
+      const md = await res.text();
+      setHtml(await marked(md));
+    } catch (err) {
+      setHtml('<p style="color: var(--text-secondary)">无法加载更新日志</p>');
+    }
+  });
+
+  return <div class="markdown-body" innerHTML={html()} />;
 }

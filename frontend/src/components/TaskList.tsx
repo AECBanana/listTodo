@@ -102,13 +102,21 @@ export default function TaskList() {
         const proj = store.projects()?.find((p) => p.id === projectId);
         if (proj?.kind === "note") taskKind = "note";
       }
+      const parsedTags = parsed.tags || [];
+      // 为 AI 解析出的 #tag 创建标签定义（若不存在）
+      for (const tagName of parsedTags) {
+        const exists = store.tags()?.some((t) => t.name === tagName);
+        if (!exists) {
+          await store.createTag({ name: tagName });
+        }
+      }
       await store.createTask({
         title: parsed.title || input,
         description: parsed.description || null,
         priority: parsed.priority || "none",
         due_date: parsed.due_date || null,
         start_date: parsed.start_date || null,
-        tags: parsed.tags || [],
+        tags: parsedTags,
         project_id: projectId,
         kind: taskKind,
       });

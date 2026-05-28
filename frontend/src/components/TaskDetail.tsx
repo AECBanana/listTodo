@@ -171,6 +171,14 @@ export default function TaskDetail(props: {
     if (isNew()) {
       if (!title().trim()) return;
       try {
+        // 为新增的标签创建标签定义（若不存在）
+        const tags = buildBody().tags;
+        for (const tagName of tags) {
+          const exists = store.tags()?.some((t) => t.name === tagName);
+          if (!exists) {
+            await store.createTag({ name: tagName });
+          }
+        }
         await store.createTask(buildBody());
         // 新建后清空表单以便继续创建
         setTitle("");
@@ -181,6 +189,14 @@ export default function TaskDetail(props: {
       }
     } else {
       try {
+        // 为新增的标签创建标签定义（若不存在）
+        const tags = buildBody().tags;
+        for (const tagName of tags) {
+          const exists = store.tags()?.some((t) => t.name === tagName);
+          if (!exists) {
+            await store.createTag({ name: tagName });
+          }
+        }
         await store.updateTask(props.task!.id, buildBody());
       } catch (err: any) {
         /* 静默失败 */
