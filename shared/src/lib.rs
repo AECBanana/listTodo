@@ -113,13 +113,17 @@ impl Priority {
             Priority::High => "high",
         }
     }
-    pub fn from_str(s: &str) -> Option<Self> {
+}
+
+impl std::str::FromStr for Priority {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "none" | "" => Some(Priority::None),
-            "low" => Some(Priority::Low),
-            "medium" => Some(Priority::Medium),
-            "high" => Some(Priority::High),
-            _ => None,
+            "none" | "" => Ok(Priority::None),
+            "low" => Ok(Priority::Low),
+            "medium" => Ok(Priority::Medium),
+            "high" => Ok(Priority::High),
+            other => Err(format!("invalid priority: {other}")),
         }
     }
 }
@@ -192,12 +196,15 @@ impl TaskKind {
             TaskKind::Note => "note",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for TaskKind {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "task" => Some(TaskKind::Task),
-            "note" => Some(TaskKind::Note),
-            _ => None,
+            "task" => Ok(TaskKind::Task),
+            "note" => Ok(TaskKind::Note),
+            other => Err(format!("invalid task kind: {other}")),
         }
     }
 }

@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use shared::{Priority, Project, Tag, Task, TaskKind, User};
+use shared::{Project, Tag, Task, User};
 use uuid::Uuid;
 
 use crate::schema::{projects, tags, tasks, users};
@@ -140,10 +140,10 @@ impl From<TaskRow> for Task {
             id: row.id,
             title: row.title,
             description: row.description,
-            kind: TaskKind::from_str(&row.kind).unwrap_or_default(),
+            kind: row.kind.parse().unwrap_or_default(),
             completed: row.completed,
             completed_at: row.completed_at,
-            priority: Priority::from_str(&row.priority).unwrap_or_default(),
+            priority: row.priority.parse().unwrap_or_default(),
             is_pinned: row.is_pinned,
             due_date: row.due_date,
             start_date: row.start_date,

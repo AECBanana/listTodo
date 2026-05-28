@@ -1,4 +1,4 @@
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey};
 use serde::{Deserialize, Serialize};
@@ -40,8 +40,10 @@ pub fn create_token(user_id: Uuid, username: &str) -> Result<String, jsonwebtoke
         exp,
     };
 
-    let mut header = Header::default();
-    header.alg = jsonwebtoken::Algorithm::HS256;
+    let header = jsonwebtoken::Header {
+        alg: jsonwebtoken::Algorithm::HS256,
+        ..Default::default()
+    };
 
     encode(
         &header,

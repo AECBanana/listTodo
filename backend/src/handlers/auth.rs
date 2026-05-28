@@ -37,7 +37,7 @@ async fn pubkey() -> Json<ApiResponse<PubkeyResponse>> {
 
 /// 密码处理：RSA 解密 → 长度校验 → SHA-256 → bcrypt
 fn process_password(encrypted_b64: &str) -> Result<String, AppError> {
-    let plain = auth::decrypt_password(encrypted_b64).map_err(|e| AppError::BadRequest(e))?;
+    let plain = auth::decrypt_password(encrypted_b64).map_err(AppError::BadRequest)?;
     if plain.len() < 6 {
         return Err(AppError::BadRequest("密码长度不能少于6位".into()));
     }
