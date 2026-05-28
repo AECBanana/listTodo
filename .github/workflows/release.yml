@@ -121,17 +121,25 @@ jobs:
             libayatana-appindicator3-dev
 
       - name: Build Tauri
-        uses: tauri-apps/tauri-action@v0
+        run: |
+          npm install -g @tauri-apps/cli
+          tauri build
+        working-directory: src-tauri
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_API_BASE: ${{ secrets.API_URL }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          projectPath: src-tauri
-          tagName: ${{ github.ref_name }}
-          releaseName: "RinoTodo ${{ github.ref_name }}"
-          releaseBody: "见 [CHANGELOG.md](./CHANGELOG.md)"
-          releaseDraft: true
-          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+          name: tauri-${{ matrix.target }}
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/rpm/*.rpm
+            target/release/bundle/appimage/*.AppImage*
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/dmg/*.dmg
+          if-no-files-found: ignore
 
   # ═══════════════════════════════════════════
   #  后端 — Linux 二进制
@@ -223,10 +231,10 @@ jobs:
           path: rinotodo-web.zip
 
   # ═══════════════════════════════════════════
-  #  汇总 — 把非 Tauri 产物挂到 Release
+  #  汇总 — 创建 Release + 所有产物
   # ═══════════════════════════════════════════
-  attach-extras:
-    name: Attach extras to Release
+  release:
+    name: Create Release
     needs: [tauri, backend, frontend]
     runs-on: ubuntu-latest
     permissions:
@@ -236,13 +244,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          merge-multiple: true
 
-      - name: Upload to Release
-        run: |
-          set -e
-          for f in artifacts/server-linux-x86_64/rinotodo-server-linux-x86_64.tar.gz \
-                   artifacts/web-dist/rinotodo-web.zip; do
-            gh release upload "${{ github.ref_name }}" "$f" --clobber
-          done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: true
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+          name: "RinoTodo ${{ github.ref_name }}"
+          body: "见 [CHANGELOG.md](./CHANGELOG.md)"
+          files: artifacts/**/*
