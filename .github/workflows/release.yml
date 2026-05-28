@@ -26,14 +26,13 @@ jobs:
 
       - id: ver
         run: |
-          # 生成 YYYY.M.D.BUILD（强制去前导零，符合 semver）
+          # 生成 YYYY.MMDD.BUILD（Cargo 只支持三段 semver）
           Y=$(date -u +%Y)
-          M=$(date -u +%-m)
-          D=$(date -u +%-d)
-          BASE="${Y}.${M}.${D}"
+          MD=$(date -u +%-m%-d)
+          BASE="${Y}.${MD}"
 
           # 查找当天已有的 tag 数量作为 BUILD 号
-          TODAY_TAGS=$(git tag -l "v${BASE}.*" | wc -l)
+          TODAY_TAGS=$(git tag -l "v${Y}.${MD}.*" | wc -l)
           BUILD=$TODAY_TAGS
 
           VERSION="${BASE}.${BUILD}"
