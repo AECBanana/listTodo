@@ -204,15 +204,17 @@ jobs:
           cd frontend/dist
           zip -r ../../rinotodo-web.zip .
 
-      - name: Deploy to FTP
-        uses: SamKirkland/FTP-Deploy-Action@4.3.3
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: frontend/dist/
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
-          dangerous-clean-slate: true
+      - name: Deploy via lftp
+        run: |
+          sudo apt-get update && sudo apt-get install -y lftp
+          lftp -c "
+          set ftp:ssl-allow no;
+          set ftp:passive-mode true;
+          set ftp:use-pasv-address false;
+          open ${{ secrets.FTP_SERVER }};
+          user ${{ secrets.FTP_USERNAME }} ${{ secrets.FTP_PASSWORD }};
+          mirror -R -e --verbose frontend/dist/ ${{ secrets.FTP_SERVER_DIR || '/' }};
+          "
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
