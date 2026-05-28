@@ -1104,9 +1104,89 @@ ul {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     background: #f3f4f6;
+    padding: 40px;
+    gap: 60px;
 }
+
+[data-theme="dark"] .auth-page {
+    background: #0f172a;
+}
+
+/* 左侧亮点区 */
+.auth-hero {
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+}
+
+.auth-hero-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.auth-hero-icon {
+    color: var(--primary);
+    margin-bottom: 4px;
+}
+
+.auth-hero-title {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+}
+
+.auth-hero-sub {
+    font-size: 16px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.auth-highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.auth-highlight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.auth-highlight-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.auth-highlight-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.auth-highlight-text strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.auth-highlight-text span {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+/* 右侧卡片 */
 
 .auth-card {
     background: var(--card-bg);
@@ -1186,6 +1266,27 @@ ul {
     margin-top: 20px;
     font-size: 13px;
     color: var(--text-secondary);
+}
+
+/* 窄屏：卡片在上，亮点区在下方 */
+@media (max-width: 800px) {
+    .auth-page {
+        flex-direction: column-reverse;
+        padding: 24px;
+        gap: 32px;
+    }
+    .auth-hero {
+        max-width: 100%;
+        align-items: center;
+        text-align: center;
+        gap: 24px;
+    }
+    .auth-hero-title {
+        font-size: 26px;
+    }
+    .auth-highlight-item {
+        justify-content: center;
+    }
 }
 
 /* ============================================================
