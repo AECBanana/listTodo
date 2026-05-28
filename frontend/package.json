@@ -1,0 +1,26 @@
+{
+  "name": "listtodo-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@solidjs/router": "^0.15.3",
+    "@tauri-apps/plugin-sql": "^2.4.0",
+    "dhtmlx-gantt": "^9.1.4",
+    "github-markdown-css": "^5.9.0",
+    "jsencrypt": "^3.3.2",
+    "lucide-solid": "^1.16.0",
+    "marked": "^18.0.4",
+    "solid-js": "^1.9.5"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2",
+    "vite": "^6.3.5",
+    "vite-plugin-solid": "^2.11.8"
+  }
+}

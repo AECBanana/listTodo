@@ -1,0 +1,1 @@
+ALTER TABLE user_settings ADD COLUMN blur_amount INTEGER NOT NULL DEFAULT 20;
