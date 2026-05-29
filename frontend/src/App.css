@@ -1505,6 +1505,36 @@ ul {
     gap: 6px;
 }
 
+/* ---- 详情面板顶部栏移动端适配 ---- */
+@media (max-width: 749px) {
+    .detail-topbar {
+        padding: 8px 12px;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    .detail-topbar-left,
+    .detail-topbar-right {
+        gap: 3px;
+    }
+
+    .detail-action-btn {
+        padding: 5px 8px;
+        font-size: 12px;
+        gap: 3px;
+    }
+
+    .detail-action-btn svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .detail-chip {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+}
+
 .detail-action-btn {
     display: inline-flex;
     align-items: center;
@@ -2651,6 +2681,54 @@ ul {
     padding: 8px 0;
 }
 
+/* ---- 四象限移动端适配 ---- */
+@media (max-width: 749px) {
+    .matrix-view {
+        padding: 16px 8px !important;
+    }
+
+    .matrix-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        gap: 10px;
+    }
+
+    .matrix-quad {
+        min-height: 120px;
+    }
+
+    .matrix-quad-header {
+        padding: 10px 12px 8px;
+    }
+
+    .matrix-quad-header h3 {
+        font-size: 14px;
+    }
+
+    .matrix-quad-desc {
+        font-size: 11px;
+    }
+
+    .matrix-tasks {
+        padding: 0 12px 10px;
+    }
+
+    .matrix-task {
+        padding: 5px 0;
+        font-size: 12px;
+        gap: 6px;
+    }
+
+    .matrix-task-dot {
+        width: 6px;
+        height: 6px;
+    }
+
+    .matrix-empty {
+        font-size: 11px;
+    }
+}
+
 .gantt-view {
     overflow: hidden !important;
     padding: 0 !important;
@@ -2897,6 +2975,69 @@ ul {
     font-size: 13px;
     color: var(--text-secondary);
     padding: 8px;
+}
+
+/* ---- 日历代移动端适配 ---- */
+@media (max-width: 749px) {
+    .calendar-view {
+        padding: 16px 8px !important;
+    }
+
+    .cal-weekdays {
+        font-size: 11px;
+        padding: 4px 0;
+    }
+
+    .cal-weekday {
+        padding: 2px 0;
+    }
+
+    .cal-cell {
+        padding: 2px 3px;
+        gap: 1px;
+        min-height: 52px;
+    }
+
+    .cal-day-num {
+        font-size: 24px;
+        line-height: 1;
+        position: static;
+    }
+
+    .cal-today-dot {
+        font-size: 24px;
+        line-height: 1;
+        position: static;
+    }
+
+    .cal-bar {
+        font-size: 8px;
+        padding: 0 2px;
+        line-height: 13px;
+        border-radius: 2px;
+    }
+
+    .cal-bars {
+        gap: 1px;
+        margin-top: 1px;
+    }
+
+    .cal-nav-btn {
+        margin: 0 2px;
+    }
+
+    .cal-mode-toggle {
+        margin-left: 4px;
+    }
+
+    .cal-mode-btn {
+        padding: 4px 6px;
+    }
+
+    .task-header h1 {
+        font-size: 14px;
+        gap: 2px;
+    }
 }
 
 /* ============================================================

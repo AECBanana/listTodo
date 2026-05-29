@@ -161,7 +161,10 @@ export default function Sidebar() {
       </Show>
 
       <Show when={store.section() === "settings"}>
-        <SettingsSubNav />
+        <SettingsSubNav
+          open={subNavOpen()}
+          onClose={() => setSubNavOpen(false)}
+        />
       </Show>
     </>
   );
@@ -170,66 +173,73 @@ export default function Sidebar() {
 // ============================================================
 // 设置子导航
 // ============================================================
-function SettingsSubNav() {
+function SettingsSubNav(props: { open: boolean; onClose: () => void }) {
   return (
-    <aside class="sub-nav">
-      <div class="settings-user-area">
-        <SettingsAvatar />
-      </div>
-      <div class="sub-nav-scroll">
-        <div class="sn-section">
-          <div class="sn-label">设置</div>
-          <button
-            class="sn-item"
-            classList={{ active: store.settingsTab() === "account" }}
-            onClick={() => store.setSettingsTab("account")}
-          >
-            <User size={15} strokeWidth={1.5} />
-            账号
-          </button>
-          <button
-            class="sn-item"
-            classList={{ active: store.settingsTab() === "theme" }}
-            onClick={() => store.setSettingsTab("theme")}
-          >
-            <Palette size={15} strokeWidth={1.5} />
-            主题
-          </button>
-          <button
-            class="sn-item"
-            classList={{ active: store.settingsTab() === "ai" }}
-            onClick={() => store.setSettingsTab("ai")}
-          >
-            <BrainCircuit size={15} strokeWidth={1.5} />
-            AI 助手
-          </button>
-          <button
-            class="sn-item"
-            classList={{ active: store.settingsTab() === "about" }}
-            onClick={() => store.setSettingsTab("about")}
-          >
-            <Info size={15} strokeWidth={1.5} />
-            关于
-          </button>
-          <Show when={store.user()?.role === "admin"}>
+    <>
+      <div
+        class="sub-nav-backdrop"
+        classList={{ show: props.open }}
+        onClick={props.onClose}
+      />
+      <aside class="sub-nav" classList={{ open: props.open }}>
+        <div class="settings-user-area">
+          <SettingsAvatar />
+        </div>
+        <div class="sub-nav-scroll">
+          <div class="sn-section">
+            <div class="sn-label">设置</div>
             <button
               class="sn-item"
-              classList={{ active: store.settingsTab() === "server" }}
-              onClick={() => store.setSettingsTab("server")}
+              classList={{ active: store.settingsTab() === "account" }}
+              onClick={() => store.setSettingsTab("account")}
             >
-              <Server size={15} strokeWidth={1.5} />
-              服务器设置
+              <User size={15} strokeWidth={1.5} />
+              账号
             </button>
-          </Show>
+            <button
+              class="sn-item"
+              classList={{ active: store.settingsTab() === "theme" }}
+              onClick={() => store.setSettingsTab("theme")}
+            >
+              <Palette size={15} strokeWidth={1.5} />
+              主题
+            </button>
+            <button
+              class="sn-item"
+              classList={{ active: store.settingsTab() === "ai" }}
+              onClick={() => store.setSettingsTab("ai")}
+            >
+              <BrainCircuit size={15} strokeWidth={1.5} />
+              AI 助手
+            </button>
+            <button
+              class="sn-item"
+              classList={{ active: store.settingsTab() === "about" }}
+              onClick={() => store.setSettingsTab("about")}
+            >
+              <Info size={15} strokeWidth={1.5} />
+              关于
+            </button>
+            <Show when={store.user()?.role === "admin"}>
+              <button
+                class="sn-item"
+                classList={{ active: store.settingsTab() === "server" }}
+                onClick={() => store.setSettingsTab("server")}
+              >
+                <Server size={15} strokeWidth={1.5} />
+                服务器设置
+              </button>
+            </Show>
+          </div>
+          <div class="sn-section sn-bottom">
+            <button class="sn-item danger-item" onClick={store.doLogout}>
+              <LogOut size={15} strokeWidth={1.5} />
+              退出登录
+            </button>
+          </div>
         </div>
-        <div class="sn-section sn-bottom">
-          <button class="sn-item danger-item" onClick={store.doLogout}>
-            <LogOut size={15} strokeWidth={1.5} />
-            退出登录
-          </button>
-        </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
