@@ -1578,6 +1578,8 @@ ul {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     padding: 4px;
     z-index: 200;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 .popover-menu-right {
@@ -1667,34 +1669,299 @@ ul {
     letter-spacing: 0.4px;
 }
 
-.dtp-custom {
+/* ---- 新日期时间选择器 ---- */
+.dtp-new {
+    padding: 6px 0;
+}
+
+/* 第一行：Tab 切换 */
+.dtp-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 10px;
+    margin-bottom: 8px;
+}
+.dtp-tab {
+    padding: 6px 14px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition:
+        color 0.15s,
+        border-color 0.15s;
+}
+.dtp-tab:hover {
+    color: var(--text);
+}
+.dtp-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+.dtp-tab-clear {
+    margin-left: auto;
+    padding: 2px 4px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    opacity: 0.5;
+    transition: opacity 0.12s;
+}
+.dtp-tab-clear:hover {
+    opacity: 1;
+    color: var(--text);
+}
+
+/* 第二行：快捷日期按钮 */
+.dtp-quick-row {
     display: flex;
     gap: 6px;
     padding: 6px 10px;
+    flex-wrap: wrap;
 }
-
-.dtp-date {
+.dtp-quick-btn {
     flex: 1;
+    min-width: 0;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+        background 0.15s,
+        border-color 0.15s;
+}
+.dtp-quick-btn:hover {
+    background: var(--hover-bg);
+    border-color: var(--primary);
+}
+
+/* 第三行：日历 */
+.dtp-calendar {
+    padding: 4px 10px 8px;
+}
+.dtp-year-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+.dtp-nav-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s;
+}
+.dtp-nav-btn:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+}
+.dtp-month-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+.dtp-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+}
+.dtp-weekday {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+    padding: 3px 0;
+}
+.dtp-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+.dtp-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    font-size: 12.5px;
+    font-family: inherit;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.dtp-day:hover {
+    background: var(--hover-bg);
+}
+.dtp-day.today {
+    color: var(--primary);
+    font-weight: 700;
+}
+.dtp-day.selected {
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+}
+.dtp-day.selected.today {
+    background: var(--primary);
+    color: #fff;
+}
+.dtp-day.empty {
+    opacity: 0;
+    cursor: default;
+}
+
+/* 第四行：时间选择 */
+.dtp-time-row {
+    padding: 6px 10px;
+    position: relative;
+}
+.dtp-time-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.dtp-time-trigger:hover {
+    border-color: var(--primary);
+}
+.dtp-time-arrow {
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+.dtp-time-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 10px;
+    right: 10px;
+    margin-bottom: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    max-height: 260px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.dtp-time-manual {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+}
+.dtp-time-input {
+    width: 100%;
     padding: 5px 8px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 12.5px;
+    font-size: 13px;
     font-family: inherit;
+    background: var(--card-bg);
+    color: var(--text);
+    box-sizing: border-box;
 }
-
-.dtp-time {
-    width: 72px;
-    padding: 5px 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 12.5px;
-    font-family: inherit;
-}
-
-.dtp-date:focus,
-.dtp-time:focus {
+.dtp-time-input:focus {
     outline: none;
     border-color: var(--primary);
+}
+.dtp-time-grid {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    padding: 6px;
+}
+.dtp-time-slot {
+    padding: 5px 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    font-size: 11.5px;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.12s;
+    text-align: center;
+}
+.dtp-time-slot:hover {
+    background: var(--hover-bg);
+}
+.dtp-time-slot.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+.dtp-actions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+}
+
+.dtp-btn {
+    flex: 1;
+    padding: 7px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        border-color 0.12s;
+}
+
+.dtp-btn-cancel {
+    background: none;
+    color: var(--text-secondary);
+}
+
+.dtp-btn-cancel:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+}
+
+.dtp-btn-confirm {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.dtp-btn-confirm:hover {
+    opacity: 0.9;
 }
 
 /* ---- 内容区 ---- */
@@ -1813,6 +2080,33 @@ ul {
     padding-left: 12px;
     color: var(--text-secondary);
     margin: 8px 0;
+}
+
+[data-theme="dark"] .detail-desc-preview {
+    color: #e6edf3;
+}
+
+[data-theme="dark"] .detail-desc-preview h1,
+[data-theme="dark"] .detail-desc-preview h2 {
+    color: #f0f6fc;
+}
+
+[data-theme="dark"] .detail-desc-preview h3 {
+    color: #f0f6fc;
+}
+
+[data-theme="dark"] .detail-desc-preview code {
+    background: #2a2a2e;
+    color: #e6edf3;
+}
+
+[data-theme="dark"] .detail-desc-preview pre {
+    background: #161b22;
+    border: 1px solid #30363d;
+}
+
+[data-theme="dark"] .detail-desc-preview blockquote {
+    color: #8b949e;
 }
 
 .detail-desc-input {
@@ -1980,6 +2274,28 @@ ul {
     color: var(--primary);
 }
 
+.subtask-add .subtask-date {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    gap: 0;
+    font-size: 0;
+    flex-shrink: 0;
+}
+
+.subtask-add .subtask-date:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
 .subtask-edit-input {
     flex: 1;
     padding: 2px 4px;
@@ -2001,7 +2317,6 @@ ul {
 
 .subtasks {
     max-height: 50vh;
-    overflow-y: auto;
 }
 
 .subtask-add {

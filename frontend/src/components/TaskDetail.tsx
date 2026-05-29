@@ -1,5 +1,5 @@
 import { createSignal, createEffect, on, Show, For } from "solid-js";
-import { store } from "../store";
+import { store, type ProjectNode } from "../store";
 import type { Priority, Task, TaskKind } from "../types";
 import { marked } from "marked";
 import DateTimePicker from "./DateTimePicker";
@@ -39,6 +39,7 @@ import {
   Circle,
   CheckCircle2,
   CalendarDays,
+  ChevronRight,
   FlagTriangleRight,
   Pin,
   Star,
@@ -459,24 +460,16 @@ export default function TaskDetail(props: {
               </Show>
             </button>
             <Show when={dateOpen()}>
-              <div class="popover-menu" style={{ "min-width": "220px" }}>
-                <div class="popover-section-label">开始日期</div>
+              <div class="popover-menu" style={{ "min-width": "260px" }}>
                 <DateTimePicker
-                  value={startDate()}
-                  onChange={(v) => {
+                  startValue={startDate()}
+                  dueValue={dueDate()}
+                  onStartChange={(v) => {
                     setStartDate(v);
-                    setDateOpen(false);
                     if (!isNew()) autoSave();
                   }}
-                  onClose={() => setDateOpen(false)}
-                />
-                <div class="popover-divider" />
-                <div class="popover-section-label">截止日期</div>
-                <DateTimePicker
-                  value={dueDate()}
-                  onChange={(v) => {
+                  onDueChange={(v) => {
                     setDueDate(v);
-                    setDateOpen(false);
                     if (!isNew()) autoSave();
                   }}
                   onClose={() => setDateOpen(false)}
@@ -617,28 +610,14 @@ export default function TaskDetail(props: {
                 >
                   无清单
                 </button>
-                <For each={store.projects()}>
-                  {(p) => (
-                    <button
-                      class="popover-item"
-                      classList={{ active: projectId() === p.id }}
-                      onClick={() => changeProject(p.id)}
-                    >
-                      {p.kind === "note" ? (
-                        <NotebookPen
-                          size={14}
-                          strokeWidth={2}
-                          color={p.color}
-                        />
-                      ) : (
-                        <ClipboardList
-                          size={14}
-                          strokeWidth={2}
-                          color={p.color}
-                        />
-                      )}
-                      {p.name}
-                    </button>
+                <For each={store.projectTree()}>
+                  {(node) => (
+                    <ProjectPopoverItem
+                      node={node}
+                      selectedId={projectId()}
+                      depth={0}
+                      onSelect={changeProject}
+                    />
                   )}
                 </For>
               </div>
@@ -729,6 +708,68 @@ export default function TaskDetail(props: {
 }
 
 // ============================================================
+// 清单选择器 — 清单树弹出项
+// ============================================================
+function ProjectPopoverItem(props: {
+  node: ProjectNode;
+  selectedId: string;
+  depth: number;
+  onSelect: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = createSignal(true);
+  const hasChildren = () => props.node.children.length > 0;
+
+  return (
+    <>
+      <button
+        class="popover-item"
+        classList={{ active: props.selectedId === props.node.id }}
+        style={{ "padding-left": `${12 + props.depth * 16}px` }}
+        onClick={() => props.onSelect(props.node.id)}
+      >
+        <Show when={hasChildren()} fallback={<span style="width:18px" />}>
+          <span
+            class="tree-toggle"
+            style={{ width: "18px", height: "18px" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded());
+            }}
+          >
+            <ChevronRight
+              size={14}
+              strokeWidth={2}
+              style={{
+                transition: "transform 0.15s",
+                transform: expanded() ? "rotate(90deg)" : "rotate(0deg)",
+              }}
+            />
+          </span>
+        </Show>
+        {props.node.kind === "note" ? (
+          <NotebookPen size={14} strokeWidth={2} color={props.node.color} />
+        ) : (
+          <ClipboardList size={14} strokeWidth={2} color={props.node.color} />
+        )}
+        <span class="project-name">{props.node.name}</span>
+      </button>
+      <Show when={expanded() && hasChildren()}>
+        <For each={props.node.children}>
+          {(child) => (
+            <ProjectPopoverItem
+              node={child}
+              selectedId={props.selectedId}
+              depth={props.depth + 1}
+              onSelect={props.onSelect}
+            />
+          )}
+        </For>
+      </Show>
+    </>
+  );
+}
+
+// ============================================================
 // 子任务列表
 // ============================================================
 function Subtasks(props: {
@@ -742,6 +783,7 @@ function Subtasks(props: {
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [editTitle, setEditTitle] = createSignal("");
   const [datePopoverId, setDatePopoverId] = createSignal<string | null>(null);
+  const [subDateOpen, setSubDateOpen] = createSignal(false);
   const [breakdownLoading, setBreakdownLoading] = createSignal(false);
 
   const children = () => {
@@ -827,19 +869,22 @@ function Subtasks(props: {
     }
   }
 
-  async function updateDate(id: string, dateStr: string) {
-    setDatePopoverId(null);
+  async function updateDateField(
+    id: string,
+    field: "start_date" | "due_date",
+    dateStr: string,
+  ) {
     try {
-      await store.updateTask(id, {
-        due_date: dateStr ? new Date(dateStr).toISOString() : null,
-      });
+      const update: any = {};
+      update[field] = dateStr ? new Date(dateStr).toISOString() : null;
+      await store.updateTask(id, update);
     } catch (err: any) {
       alert(err.message);
     }
   }
 
   function clearDate(id: string) {
-    updateDate(id, "");
+    updateDateField(id, "due_date", "");
   }
 
   const dateQuickOptions = () => {
@@ -903,26 +948,44 @@ function Subtasks(props: {
                 }
                 title="设置日期"
               >
-                {child.due_date ? (
-                  <>
-                    <CalendarDays size={12} strokeWidth={2} />
-                    {new Date(child.due_date).toLocaleDateString("zh-CN", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </>
-                ) : (
-                  <CalendarDays size={12} strokeWidth={2} />
-                )}
+                <CalendarDays size={13} strokeWidth={2} />
+                {child.start_date && child.due_date
+                  ? new Date(child.start_date).toLocaleDateString("zh-CN") +
+                    " " +
+                    new Date(child.start_date).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }) +
+                    " - " +
+                    new Date(child.due_date).toLocaleDateString("zh-CN") +
+                    " " +
+                    new Date(child.due_date).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : child.due_date
+                    ? new Date(child.due_date).toLocaleDateString("zh-CN") +
+                      " " +
+                      new Date(child.due_date).toLocaleTimeString("zh-CN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "日期"}
               </button>
               <Show when={datePopoverId() === child.id}>
                 <div
                   class="popover-menu popover-menu-right"
-                  style={{ "min-width": "180px", bottom: "100%", top: "auto" }}
+                  style={{ "min-width": "260px", bottom: "100%", top: "auto" }}
                 >
                   <DateTimePicker
-                    value={child.due_date?.slice(0, 16) ?? ""}
-                    onChange={(v) => updateDate(child.id, v)}
+                    startValue={child.start_date?.slice(0, 16) ?? ""}
+                    dueValue={child.due_date?.slice(0, 16) ?? ""}
+                    onStartChange={(v) =>
+                      updateDateField(child.id, "start_date", v)
+                    }
+                    onDueChange={(v) =>
+                      updateDateField(child.id, "due_date", v)
+                    }
                     onClose={() => setDatePopoverId(null)}
                   />
                 </div>
@@ -946,12 +1009,31 @@ function Subtasks(props: {
           onKeyDown={(e) => e.key === "Enter" && addSubtask()}
           disabled={breakdownLoading()}
         />
-        <input
-          type="datetime-local"
-          class="subtask-date-input"
-          value={subDate()}
-          onInput={(e) => setSubDate(e.currentTarget.value)}
-        />
+        <div class="popover-wrapper">
+          <button
+            class="subtask-date"
+            onClick={() => setSubDateOpen(!subDateOpen())}
+          >
+            <CalendarDays size={16} strokeWidth={2} />
+          </button>
+          <Show when={subDateOpen()}>
+            <div
+              class="popover-menu popover-menu-up popover-menu-right"
+              style={{ "min-width": "260px" }}
+            >
+              <DateTimePicker
+                startValue=""
+                dueValue={subDate()}
+                onStartChange={() => {}}
+                onDueChange={(v) => {
+                  setSubDate(v);
+                  setSubDateOpen(false);
+                }}
+                onClose={() => setSubDateOpen(false)}
+              />
+            </div>
+          </Show>
+        </div>
         <button
           class="ai-breakdown-btn"
           title="AI 智能拆解子任务（基于任务描述）"
