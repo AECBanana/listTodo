@@ -5,6 +5,8 @@
 - task详细切换project清单现改为tree显示
 - 优化日期picker
 - 小小的移动端支持，后面再弄移动app
+- tauri支持
+- ui页面调整
 
 ## 20260528.0
 
