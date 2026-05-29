@@ -28,6 +28,10 @@ export default function SettingsPanel() {
   async function handleAvatarChange(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
+    if (file.size > 521 * 1024) {
+      alert("图片大小不能超过 521KB");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = async () => {
       try {
