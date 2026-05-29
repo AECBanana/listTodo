@@ -327,11 +327,16 @@ export default function TaskDetail(props: {
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
     const now = `${today.getHours().toString().padStart(2, "0")}:${today.getMinutes().toString().padStart(2, "0")}`;
-    const toStr = (d: Date) => `${d.toISOString().slice(0, 10)}T${now}`;
+    const toLocal = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}T${now}`;
+    };
     return [
-      { label: "今天", value: toStr(today) },
-      { label: "明天", value: toStr(tomorrow) },
-      { label: "下周", value: toStr(nextWeek) },
+      { label: "今天", value: toLocal(today) },
+      { label: "明天", value: toLocal(tomorrow) },
+      { label: "下周", value: toLocal(nextWeek) },
     ];
   };
 
@@ -876,7 +881,7 @@ function Subtasks(props: {
   ) {
     try {
       const update: any = {};
-      update[field] = dateStr ? new Date(dateStr).toISOString() : null;
+      update[field] = dateStr || null;
       await store.updateTask(id, update);
     } catch (err: any) {
       alert(err.message);
@@ -894,11 +899,16 @@ function Subtasks(props: {
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
     const now = `${today.getHours().toString().padStart(2, "0")}:${today.getMinutes().toString().padStart(2, "0")}`;
-    const toStr = (d: Date) => `${d.toISOString().slice(0, 10)}T${now}`;
+    const toLocal = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}T${now}`;
+    };
     return [
-      { label: "今天", value: toStr(today) },
-      { label: "明天", value: toStr(tomorrow) },
-      { label: "下周", value: toStr(nextWeek) },
+      { label: "今天", value: toLocal(today) },
+      { label: "明天", value: toLocal(tomorrow) },
+      { label: "下周", value: toLocal(nextWeek) },
     ];
   };
 
