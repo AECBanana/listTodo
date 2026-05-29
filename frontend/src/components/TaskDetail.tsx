@@ -35,6 +35,14 @@ function applyMdTheme(theme: string) {
   _lightLink!.disabled = theme === "dark";
   _darkLink!.disabled = theme !== "dark";
 }
+
+const toLocalDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 import {
   Circle,
   CheckCircle2,
@@ -327,11 +335,16 @@ export default function TaskDetail(props: {
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
     const now = `${today.getHours().toString().padStart(2, "0")}:${today.getMinutes().toString().padStart(2, "0")}`;
-    const toStr = (d: Date) => `${d.toISOString().slice(0, 10)}T${now}`;
+    const toLocal = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}T${now}`;
+    };
     return [
-      { label: "今天", value: toStr(today) },
-      { label: "明天", value: toStr(tomorrow) },
-      { label: "下周", value: toStr(nextWeek) },
+      { label: "今天", value: toLocal(today) },
+      { label: "明天", value: toLocal(tomorrow) },
+      { label: "下周", value: toLocal(nextWeek) },
     ];
   };
 
@@ -350,8 +363,9 @@ export default function TaskDetail(props: {
   const countdown = () => {
     const d = dueDate();
     if (!d) return null;
-    const now = new Date();
-    const target = new Date(d);
+    const [datePart] = d.split("T");
+    const target = new Date(datePart + "T00:00");
+    const now = new Date(toLocalDate(new Date()) + "T00:00");
     const diffMs = target.getTime() - now.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     if (diffDays < 0) return { text: "已过期", cls: "expired" };
@@ -364,7 +378,7 @@ export default function TaskDetail(props: {
   function fmtSingle(dateStr: string) {
     if (!dateStr) return "日期";
     const date = new Date(dateStr);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDate(new Date());
     const hasTime =
       dateStr.length > 10 &&
       !dateStr.endsWith("T00:00") &&
@@ -374,7 +388,7 @@ export default function TaskDetail(props: {
     else {
       const t = new Date();
       t.setDate(t.getDate() + 1);
-      if (dateStr.slice(0, 10) === t.toISOString().slice(0, 10)) label = "明天";
+      if (dateStr.slice(0, 10) === toLocalDate(t)) label = "明天";
       else
         label = date.toLocaleDateString("zh-CN", {
           month: "short",
@@ -876,7 +890,7 @@ function Subtasks(props: {
   ) {
     try {
       const update: any = {};
-      update[field] = dateStr ? new Date(dateStr).toISOString() : null;
+      update[field] = dateStr || null;
       await store.updateTask(id, update);
     } catch (err: any) {
       alert(err.message);
@@ -887,6 +901,15 @@ function Subtasks(props: {
     updateDateField(id, "due_date", "");
   }
 
+  // 直接解析 UTC+8 字符串，不经过 Date（避免浏览器时区差异）
+  const fmtDateShort = (v: string) => {
+    if (!v) return "";
+    const [date, time] = v.split("T");
+    const [, m, d] = date.split("-");
+    const [h, min] = time.split(":");
+    return `${parseInt(m)}/${parseInt(d)} ${h}:${min}`;
+  };
+
   const dateQuickOptions = () => {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -894,11 +917,16 @@ function Subtasks(props: {
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
     const now = `${today.getHours().toString().padStart(2, "0")}:${today.getMinutes().toString().padStart(2, "0")}`;
-    const toStr = (d: Date) => `${d.toISOString().slice(0, 10)}T${now}`;
+    const toLocal = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}T${now}`;
+    };
     return [
-      { label: "今天", value: toStr(today) },
-      { label: "明天", value: toStr(tomorrow) },
-      { label: "下周", value: toStr(nextWeek) },
+      { label: "今天", value: toLocal(today) },
+      { label: "明天", value: toLocal(tomorrow) },
+      { label: "下周", value: toLocal(nextWeek) },
     ];
   };
 
@@ -950,26 +978,11 @@ function Subtasks(props: {
               >
                 <CalendarDays size={13} strokeWidth={2} />
                 {child.start_date && child.due_date
-                  ? new Date(child.start_date).toLocaleDateString("zh-CN") +
-                    " " +
-                    new Date(child.start_date).toLocaleTimeString("zh-CN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }) +
+                  ? fmtDateShort(child.start_date) +
                     " - " +
-                    new Date(child.due_date).toLocaleDateString("zh-CN") +
-                    " " +
-                    new Date(child.due_date).toLocaleTimeString("zh-CN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
+                    fmtDateShort(child.due_date)
                   : child.due_date
-                    ? new Date(child.due_date).toLocaleDateString("zh-CN") +
-                      " " +
-                      new Date(child.due_date).toLocaleTimeString("zh-CN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
+                    ? fmtDateShort(child.due_date)
                     : "日期"}
               </button>
               <Show when={datePopoverId() === child.id}>

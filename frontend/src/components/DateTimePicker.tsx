@@ -1,6 +1,13 @@
 import { createSignal, For, Show } from "solid-js";
 import { Eraser } from "lucide-solid";
 
+const toLocalDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 // ============================================================
 // 自定义日期时间选择器
 // 日期 Tab：单个日历 + 时间（截止日期）
@@ -24,14 +31,14 @@ export default function DateTimePicker(props: {
   const [localStart, setLocalStart] = createSignal(props.startValue);
   const [localDue, setLocalDue] = createSignal(props.dueValue);
 
-  const todayStr = () => new Date().toISOString().slice(0, 10);
+  const todayStr = () => toLocalDate(new Date());
 
   // ---- 快捷日期 ----
   const quickOptions = () => {
     const t = new Date();
     const addDays = (n: number) => {
       const d = new Date(t.getTime() + n * 86400000);
-      return d.toISOString().slice(0, 10);
+      return toLocalDate(d);
     };
     return [
       { label: "今天", value: addDays(0) },
