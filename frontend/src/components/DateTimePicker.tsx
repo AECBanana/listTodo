@@ -1,8 +1,17 @@
 import { For, Show } from "solid-js";
 
-// ============================================================
-// 自定义日期时间选择器
-// ============================================================
+const toLocalDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const toLocalTime = (d: Date) => {
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${min}`;
+};
 
 export default function DateTimePicker(props: {
   value: string;
@@ -18,12 +27,11 @@ export default function DateTimePicker(props: {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
-    const now = `${today.getHours().toString().padStart(2, "0")}:${today.getMinutes().toString().padStart(2, "0")}`;
-    const toDate = (d: Date) => d.toISOString().slice(0, 10);
+    const now = toLocalTime(today);
     return [
-      { label: "今天", value: `${toDate(today)}T${now}` },
-      { label: "明天", value: `${toDate(tomorrow)}T${now}` },
-      { label: "下周", value: `${toDate(nextWeek)}T${now}` },
+      { label: "今天", value: `${toLocalDate(today)}T${now}` },
+      { label: "明天", value: `${toLocalDate(tomorrow)}T${now}` },
+      { label: "下周", value: `${toLocalDate(nextWeek)}T${now}` },
     ];
   };
 
@@ -33,7 +41,7 @@ export default function DateTimePicker(props: {
   }
 
   function setTime(t: string) {
-    const d = datePart() || new Date().toISOString().slice(0, 10);
+    const d = datePart() || toLocalDate(new Date());
     props.onChange(`${d}T${t}`);
   }
 

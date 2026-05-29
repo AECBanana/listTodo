@@ -132,13 +132,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tauri-${{ matrix.target }}
-          path: |
-            target/release/bundle/deb/*.deb
-            target/release/bundle/rpm/*.rpm
-            target/release/bundle/appimage/*.AppImage*
-            target/release/bundle/msi/*.msi
-            target/release/bundle/nsis/*.exe
-            target/release/bundle/dmg/*.dmg
+          path: target/release/bundle/**/*
           if-no-files-found: ignore
 
   # ═══════════════════════════════════════════
@@ -255,13 +249,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "=== Files in assets ==="
+          find assets -type f || echo "NO FILES FOUND"
+
           gh release create "${{ github.ref_name }}" \
             --draft \
             --title "RinoTodo ${{ github.ref_name }}" \
             --notes "见 [CHANGELOG.md](./CHANGELOG.md)" \
             ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') && '--prerelease' || '' }}
 
-          find assets -type f | while read f; do
+          find assets -mindepth 2 -type f | while read f; do
             echo "Uploading $f"
             gh release upload "${{ github.ref_name }}" "$f" --clobber
           done
