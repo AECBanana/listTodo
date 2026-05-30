@@ -1,4 +1,7 @@
-use axum::{extract::{Query, State}, routing, Json, Router};
+use axum::{
+    extract::{Query, State},
+    routing, Json, Router,
+};
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -41,25 +44,18 @@ async fn pull(
 ) -> AppResult<Json<shared::ApiResponse<PullData>>> {
     let mut conn = pool.get()?;
 
-    let since_dt: Option<DateTime<Utc>> = query
-        .since
-        .as_deref()
-        .and_then(|s| {
-            // Try parsing ISO 8601 with various formats
-            chrono::DateTime::parse_from_rfc3339(s)
-                .map(|dt| dt.with_timezone(&Utc))
-                .or_else(|_| {
-                    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
-                        .map(|naive| naive.and_utc())
-                })
-                .ok()
-        });
+    let since_dt: Option<DateTime<Utc>> = query.since.as_deref().and_then(|s| {
+        // Try parsing ISO 8601 with various formats
+        chrono::DateTime::parse_from_rfc3339(s)
+            .map(|dt| dt.with_timezone(&Utc))
+            .or_else(|_| {
+                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
+                    .map(|naive| naive.and_utc())
+            })
+            .ok()
+    });
 
-    tracing::info!(
-        "Sync pull: user={}, since={:?}",
-        user_id,
-        since_dt
-    );
+    tracing::info!("Sync pull: user={}, since={:?}", user_id, since_dt);
 
     // Projects: filter by updated_at if since is provided
     let mut project_query = projects::table
@@ -71,9 +67,7 @@ async fn pull(
     let all_projects: Vec<ProjectRow> = project_query.load(&mut conn)?;
 
     // Tasks: filter by updated_at if since is provided
-    let mut task_query = tasks::table
-        .filter(tasks::user_id.eq(user_id))
-        .into_boxed();
+    let mut task_query = tasks::table.filter(tasks::user_id.eq(user_id)).into_boxed();
     if let Some(since_dt) = since_dt {
         task_query = task_query.filter(tasks::updated_at.gt(since_dt));
     }
@@ -85,9 +79,7 @@ async fn pull(
         .load(&mut conn)?;
 
     // Deleted entities: filter by deleted_at if since is provided
-    let mut deleted_query = de::table
-        .filter(de::user_id.eq(user_id))
-        .into_boxed();
+    let mut deleted_query = de::table.filter(de::user_id.eq(user_id)).into_boxed();
     if let Some(since_dt) = since_dt {
         deleted_query = deleted_query.filter(de::deleted_at.gt(since_dt));
     }
