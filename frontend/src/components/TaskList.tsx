@@ -1,10 +1,21 @@
-import { createSignal, For, Show } from "solid-js";
+import {
+  createSignal,
+  createEffect,
+  createMemo,
+  For,
+  Show,
+  onMount,
+} from "solid-js";
 import { store, type TaskNode } from "../store";
 import TaskItem from "./TaskItem";
 import TaskDetail from "./TaskDetail";
 import type { Task } from "../types";
 import {
+  Calendar,
   CheckCircle2,
+  ClipboardList,
+  FlagTriangleRight,
+  NotebookPen,
   Plus,
   Rocket,
   ArrowDownWideNarrow,
@@ -13,10 +24,96 @@ import {
 } from "lucide-solid";
 import { parseTask, getAgentSettings } from "../api/agent";
 
+// ============================================================
+// 递归限制任务树节点数量
+// ============================================================
+function limitTaskTree(nodes: TaskNode[], max: number): TaskNode[] {
+  if (max <= 0) return [];
+  const result: TaskNode[] = [];
+  let count = 0;
+  for (const node of nodes) {
+    if (count >= max) break;
+    count++;
+    const childLimit = max - count;
+    const limitedChildren = limitTaskTree(node.children, childLimit);
+    result.push({ ...node, children: limitedChildren });
+    count += limitedChildren.length;
+  }
+  return result;
+}
+
+function groupIcon(gm: string, label: string) {
+  if (gm === "date") {
+    return <Calendar size={14} strokeWidth={2} color="var(--text-secondary)" />;
+  }
+  if (gm === "project" && label && label !== "无清单") {
+    // 查找对应清单的 kind 来显示正确的图标
+    const proj = store.projects()?.find((p) => p.name === label);
+    if (proj) {
+      return proj.kind === "note" ? (
+        <NotebookPen size={14} strokeWidth={2} color={proj.color} />
+      ) : (
+        <ClipboardList size={14} strokeWidth={2} color={proj.color} />
+      );
+    }
+  }
+  return null;
+}
+
 export default function TaskList() {
   const [selectedTask, setSelectedTask] = createSignal<Task | null>(null);
   const [isNewTask, setIsNewTask] = createSignal(false);
   const [sortOpen, setSortOpen] = createSignal(false);
+
+  // ===== 无限滚动 / 懒加载 =====
+  const ITEMS_PER_PAGE = 50;
+  const [visibleCount, setVisibleCount] = createSignal(ITEMS_PER_PAGE);
+  let sentinelRef: HTMLDivElement | undefined;
+
+  // 当过滤条件变化时重置可见数量
+  createEffect(() => {
+    store.filteredTasks();
+    setVisibleCount(ITEMS_PER_PAGE);
+  });
+
+  // IntersectionObserver 监听底部哨兵，加载更多
+  onMount(() => {
+    if (!sentinelRef) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          const total = store.filteredTasks().length;
+          setVisibleCount((prev) => Math.min(prev + ITEMS_PER_PAGE, total));
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(sentinelRef);
+    return () => observer.disconnect();
+  });
+
+  // 按 visibleCount 切片：树状视图
+  const slicedTaskTree = createMemo(() => {
+    const nodes = store.filteredTaskTree();
+    const max = visibleCount();
+    return limitTaskTree(nodes, max);
+  });
+
+  // 按 visibleCount 切片：分组视图
+  const slicedGroupedTasks = createMemo(() => {
+    const groups = store.groupedTasks();
+    const max = visibleCount();
+    const result: { label: string; tasks: Task[] }[] = [];
+    let count = 0;
+    for (const g of groups) {
+      if (count >= max) break;
+      const remaining = max - count;
+      const sliced = g.tasks.slice(0, remaining);
+      result.push({ label: g.label, tasks: sliced });
+      count += sliced.length;
+    }
+    return result;
+  });
 
   const groupLabel = () => {
     const m: Record<string, string> = {
@@ -250,17 +347,18 @@ export default function TaskList() {
         >
           <Show when={store.groupMode() === "none"}>
             <TaskNodeList
-              nodes={store.filteredTaskTree()}
+              nodes={slicedTaskTree()}
               selectedId={selectedTask()?.id ?? null}
               onEdit={handleEdit}
             />
           </Show>
           <Show when={store.groupMode() !== "none"}>
-            <For each={store.groupedTasks()}>
+            <For each={slicedGroupedTasks()}>
               {(group) => (
                 <>
                   <Show when={group.label}>
                     <h3 class="group-heading">
+                      {groupIcon(store.groupMode(), group.label)}
                       {group.label} ({group.tasks.length})
                     </h3>
                   </Show>
@@ -279,6 +377,14 @@ export default function TaskList() {
               )}
             </For>
           </Show>
+
+          {/* 底部哨兵 — 触发加载更多 */}
+          <div
+            ref={(el) => {
+              sentinelRef = el;
+            }}
+            style="height: 1px;"
+          />
         </Show>
       </div>
 

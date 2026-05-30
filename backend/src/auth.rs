@@ -2,6 +2,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Validation};
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey};
 use serde::{Deserialize, Serialize};
+
 use std::sync::LazyLock;
 use uuid::Uuid;
 
@@ -17,11 +18,19 @@ pub struct Claims {
 fn jwt_secret() -> &'static str {
     static SECRET: LazyLock<String> = LazyLock::new(|| {
         let s = std::env::var("JWT_SECRET").unwrap_or_else(|_| {
-            tracing::warn!("JWT_SECRET 未设置，使用默认密钥（仅开发环境安全）");
-            "dev-secret-change-me".into()
+            if cfg!(debug_assertions) {
+                tracing::warn!("[!] 未设置 JWT_SECRET，使用开发密钥");
+                "dev-do-not-use-in-production-xxxxxxxx".into()
+            } else {
+                panic!("JWT_SECRET must be set in production");
+            }
         });
-        if s == "dev-secret-change-me" || s.len() < 16 {
-            tracing::warn!("JWT_SECRET 太短或不安全，请在生产环境中更换");
+        if s.len() < 16 {
+            if cfg!(debug_assertions) {
+                tracing::warn!("[!] JWT_SECRET 太短或不安全，请在生产环境中更换");
+            } else {
+                panic!("JWT_SECRET must be at least 16 characters in production");
+            }
         }
         s
     });
@@ -30,7 +39,7 @@ fn jwt_secret() -> &'static str {
 
 pub fn create_token(user_id: Uuid, username: &str) -> Result<String, jsonwebtoken::errors::Error> {
     let exp = chrono::Utc::now()
-        .checked_add_signed(chrono::Duration::hours(24))
+        .checked_add_signed(chrono::Duration::hours(1))
         .expect("valid timestamp")
         .timestamp() as usize;
 
@@ -106,4 +115,68 @@ pub fn decrypt_password(encrypted_b64: &str) -> Result<String, String> {
     key.decrypt(Pkcs1v15Encrypt, &ciphertext)
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
         .map_err(|_| "解密失败，公钥不匹配".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    #[test]
+    fn test_jwt_secret_default_in_debug() {
+        let saved = std::env::var("JWT_SECRET").ok();
+        std::env::remove_var("JWT_SECRET");
+        let result = std::panic::catch_unwind(|| {
+            jwt_secret();
+        });
+        // Restore env
+        if let Some(val) = saved {
+            std::env::set_var("JWT_SECRET", val);
+        }
+        if cfg!(debug_assertions) {
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_jwt_secret_from_env() {
+        std::env::set_var("JWT_SECRET", "my-test-secret-key-at-least-16-chars");
+        let secret = jwt_secret();
+        assert!(secret.len() >= 16);
+    }
+
+    #[test]
+    fn test_create_and_verify_token() {
+        std::env::set_var("JWT_SECRET", "test-jwt-secret-for-unit-tests!!");
+        let user_id = Uuid::new_v4();
+        let username = "testuser";
+
+        let token = create_token(user_id, username).expect("token creation failed");
+        assert!(!token.is_empty());
+
+        let claims = verify_token(&token).expect("token verification failed");
+        assert_eq!(claims.sub, user_id);
+        assert_eq!(claims.username, username);
+    }
+
+    #[test]
+    fn test_verify_invalid_token() {
+        std::env::set_var("JWT_SECRET", "test-jwt-secret-for-unit-tests!!");
+        let result = verify_token("invalid.token.here");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_claims_serialization() {
+        let claims = Claims {
+            sub: Uuid::nil(),
+            username: "test".into(),
+            exp: 9999999999,
+        };
+        let json = serde_json::to_string(&claims).unwrap();
+        let parsed: Claims = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.sub, Uuid::nil());
+        assert_eq!(parsed.username, "test");
+        assert_eq!(parsed.exp, 9999999999);
+    }
 }

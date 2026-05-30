@@ -17,13 +17,13 @@ import {
 const PRIORITY_ICON: Record<string, () => any> = {
   none: () => null,
   low: () => (
-    <FlagTriangleRight size={14} strokeWidth={2.5} class="priority-low" />
+    <FlagTriangleRight size={18} strokeWidth={2.5} class="priority-low" />
   ),
   medium: () => (
-    <FlagTriangleRight size={14} strokeWidth={2.5} class="priority-medium" />
+    <FlagTriangleRight size={18} strokeWidth={2.5} class="priority-medium" />
   ),
   high: () => (
-    <FlagTriangleRight size={14} strokeWidth={2.5} class="priority-high" />
+    <FlagTriangleRight size={18} strokeWidth={2.5} class="priority-high" />
   ),
 };
 
@@ -132,6 +132,7 @@ export default function TaskItem(props: {
       style={{ "margin-left": `${(props.depth ?? 0) * 24}px` }}
       onContextMenu={openCtx}
     >
+      {PRIORITY_ICON[t.priority]?.()}
       <div class="task-row">
         {/* 左侧：勾选框（非笔记） */}
         {t.kind !== "note" && (
@@ -147,7 +148,6 @@ export default function TaskItem(props: {
         {/* 中间：标题 + 元信息 */}
         <div class="task-content" onClick={() => props.onEdit(t)}>
           <span class="task-title">
-            {PRIORITY_ICON[t.priority]?.()}
             {t.kind === "note" && (
               <StickyNote size={14} strokeWidth={2} class="kind-icon" />
             )}

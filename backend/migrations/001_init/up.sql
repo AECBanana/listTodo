@@ -34,7 +34,6 @@ CREATE TABLE tasks (
     priority     TEXT NOT NULL DEFAULT 'none',
     is_pinned    BOOLEAN NOT NULL DEFAULT FALSE,
     due_date     TIMESTAMPTZ,
-    start_date   TIMESTAMPTZ,
     project_id   UUID REFERENCES projects(id) ON DELETE SET NULL,
     parent_id    UUID REFERENCES tasks(id) ON DELETE CASCADE,
     tags         TEXT[] NOT NULL DEFAULT '{}',

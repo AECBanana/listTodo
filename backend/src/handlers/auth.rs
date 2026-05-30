@@ -10,7 +10,9 @@ use shared::{
 use crate::auth;
 use crate::db::DbPool;
 use crate::error::{AppError, AppResult};
-use crate::middleware::AuthUser;
+use crate::middleware::{
+    check_rate_limit, is_ip_already_registered, mark_ip_registered, AuthUser, RateLimitExtractor,
+};
 use crate::models::{NewUser, UserRow};
 use crate::schema::{server_settings, users};
 
@@ -38,8 +40,11 @@ async fn pubkey() -> Json<ApiResponse<PubkeyResponse>> {
 /// 密码处理：RSA 解密 → 长度校验 → SHA-256 → bcrypt
 fn process_password(encrypted_b64: &str) -> Result<String, AppError> {
     let plain = auth::decrypt_password(encrypted_b64).map_err(AppError::BadRequest)?;
-    if plain.len() < 6 {
-        return Err(AppError::BadRequest("密码长度不能少于6位".into()));
+    if plain.len() < 8 {
+        return Err(AppError::BadRequest("密码长度不能少于8位".into()));
+    }
+    if plain.len() > 128 {
+        return Err(AppError::BadRequest("密码不能超过128位".into()));
     }
     Ok(hex::encode(Sha256::digest(plain.as_bytes())))
 }
@@ -47,8 +52,21 @@ fn process_password(encrypted_b64: &str) -> Result<String, AppError> {
 // POST /api/auth/register
 async fn register(
     State(pool): State<DbPool>,
+    RateLimitExtractor(ip): RateLimitExtractor,
     Json(req): Json<RegisterRequest>,
 ) -> AppResult<Json<ApiResponse<AuthResponse>>> {
+    // Rate limit: 3 registrations per minute per IP
+    if !check_rate_limit(&format!("register:{}", ip), 3, 60) {
+        return Err(AppError::TooManyRequests(
+            "注册请求过于频繁，请稍后再试".into(),
+        ));
+    }
+
+    // 限制每 IP 只能注册一个账号
+    if is_ip_already_registered(ip.as_str()) {
+        return Err(AppError::BadRequest("此 IP 已注册过账号".into()));
+    }
+
     if req.username.trim().is_empty() {
         return Err(AppError::BadRequest("用户名不能为空".into()));
     }
@@ -62,26 +80,27 @@ async fn register(
         .map_err(|_| AppError::Database("密码加密失败".into()))?;
 
     let mut conn = pool.get()?;
-    // 检查注册开关
-    let user_count: i64 = users::table.count().get_result(&mut conn)?;
-    let registration_open: String = server_settings::table
-        .find("registration_open")
-        .select(server_settings::value)
-        .first(&mut conn)?;
-    if registration_open != "true" && user_count > 0 {
-        return Err(AppError::BadRequest("注册功能已关闭".into()));
-    }
 
-    let role = if user_count == 0 { "admin" } else { "normal" };
-
-    let new_user = NewUser {
-        username: req.username.clone(),
-        password_hash,
-        role: role.into(),
-    };
-
-    // 事务内 insert，利用数据库 UNIQUE 约束防 TOCTOU 竞争
+    // 事务内：原子性地检查注册开关 + insert，防止 TOCTOU 竞争
     let result: Result<UserRow, diesel::result::Error> = conn.transaction(|conn| {
+        let user_count: i64 = users::table.count().get_result(conn)?;
+        let registration_open: String = server_settings::table
+            .find("registration_open")
+            .select(server_settings::value)
+            .first(conn)?;
+
+        if registration_open != "true" && user_count > 0 {
+            return Err(diesel::result::Error::RollbackTransaction);
+        }
+
+        let role = if user_count == 0 { "admin" } else { "normal" };
+
+        let new_user = NewUser {
+            username: req.username.clone(),
+            password_hash,
+            role: role.into(),
+        };
+
         diesel::insert_into(users::table)
             .values(&new_user)
             .returning(UserRow::as_returning())
@@ -90,6 +109,9 @@ async fn register(
 
     let row = match result {
         Ok(row) => row,
+        Err(diesel::result::Error::RollbackTransaction) => {
+            return Err(AppError::BadRequest("注册功能已关闭".into()));
+        }
         Err(diesel::result::Error::DatabaseError(
             diesel::result::DatabaseErrorKind::UniqueViolation,
             _,
@@ -100,6 +122,7 @@ async fn register(
     };
 
     let user: User = row.into();
+    mark_ip_registered(ip.as_str());
     tracing::info!("用户注册成功: {} (role={})", user.username, user.role);
     let token = auth::create_token(user.id, &user.username)
         .map_err(|_| AppError::Database("Token 生成失败".into()))?;
@@ -110,8 +133,14 @@ async fn register(
 // POST /api/auth/login
 async fn login(
     State(pool): State<DbPool>,
+    RateLimitExtractor(ip): RateLimitExtractor,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<Json<ApiResponse<AuthResponse>>> {
+    // Rate limit: 5 login attempts per minute per IP
+    if !check_rate_limit(&format!("login:{}", ip), 5, 60) {
+        return Err(AppError::TooManyRequests("请求过于频繁，请稍后再试".into()));
+    }
+
     let mut conn = pool.get()?;
 
     let row: UserRow = users::table
@@ -126,6 +155,8 @@ async fn login(
     let sha256 = process_password(&req.encrypted_password)?;
     let valid = bcrypt::verify(&sha256, &row.password_hash).unwrap_or(false);
     if !valid {
+        // Track failed login attempts for brute force protection
+        check_rate_limit(&format!("login_fail:{}", ip), 10, 300);
         tracing::warn!("登录失败-密码错误: {}", req.username);
         return Err(AppError::BadRequest("用户名或密码错误".into()));
     }

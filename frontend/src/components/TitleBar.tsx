@@ -5,6 +5,10 @@ function isTauri() {
   return !!(window as any).__TAURI_INTERNALS__;
 }
 
+function isMacOS() {
+  return /mac/i.test(navigator.platform);
+}
+
 export default function TitleBar() {
   if (!isTauri()) return null;
 
@@ -42,39 +46,68 @@ export default function TitleBar() {
   }
 
   function onDragStart(e: MouseEvent) {
-    // 只在点击标题栏背景时启动拖拽，不拦截按钮点击
     const target = e.target as HTMLElement;
     if (target.closest("button")) return;
     e.preventDefault();
     appWindow?.startDragging();
   }
 
+  const mac = isMacOS();
+
   return (
-    <div class="titlebar" data-tauri-drag-region onMouseDown={onDragStart}>
-      <span class="titlebar-title">RinoTodo</span>
-      <div class="titlebar-controls">
-        <button class="titlebar-btn" onClick={minimize} title="最小化">
-          <Minus size={14} strokeWidth={2} />
-        </button>
-        <button
-          class="titlebar-btn"
-          onClick={toggleMaximize}
-          title={maximized() ? "还原" : "最大化"}
-        >
-          {maximized() ? (
-            <Square size={12} strokeWidth={2} />
-          ) : (
-            <Maximize size={14} strokeWidth={2} />
-          )}
-        </button>
-        <button
-          class="titlebar-btn titlebar-close"
-          onClick={close}
-          title="关闭"
-        >
-          <X size={14} strokeWidth={2} />
-        </button>
-      </div>
+    <div
+      class="titlebar"
+      classList={{ "titlebar-mac": mac }}
+      data-tauri-drag-region
+      onMouseDown={mac ? undefined : onDragStart}
+    >
+      {/* macOS 红绿灯在左侧 */}
+      {mac && (
+        <div class="titlebar-mac-controls">
+          <button
+            class="titlebar-mac-btn titlebar-mac-close"
+            onClick={close}
+            title="关闭"
+          />
+          <button
+            class="titlebar-mac-btn titlebar-mac-minimize"
+            onClick={minimize}
+            title="最小化"
+          />
+          <button
+            class="titlebar-mac-btn titlebar-mac-maximize"
+            onClick={toggleMaximize}
+            title="最大化"
+          />
+        </div>
+      )}
+      <span class="titlebar-title">{mac ? "" : "RinoTodo"}</span>
+      {/* Windows/Linux 控件在右侧 */}
+      {!mac && (
+        <div class="titlebar-controls">
+          <button class="titlebar-btn" onClick={minimize} title="最小化">
+            <Minus size={14} strokeWidth={2} />
+          </button>
+          <button
+            class="titlebar-btn"
+            onClick={toggleMaximize}
+            title={maximized() ? "还原" : "最大化"}
+          >
+            {maximized() ? (
+              <Square size={12} strokeWidth={2} />
+            ) : (
+              <Maximize size={14} strokeWidth={2} />
+            )}
+          </button>
+          <button
+            class="titlebar-btn titlebar-close"
+            onClick={close}
+            title="关闭"
+          >
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

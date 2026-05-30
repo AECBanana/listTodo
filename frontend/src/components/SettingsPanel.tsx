@@ -223,7 +223,8 @@ function AiSettings() {
           class="settings-desc"
           style="font-size:11px;color:var(--text-secondary)"
         >
-          密钥仅保存在浏览器本地，不会上传到服务器
+          密钥保存在浏览器本地，不会上传到服务器。注意：localStorage
+          可被恶意脚本读取
         </span>
       </div>
 

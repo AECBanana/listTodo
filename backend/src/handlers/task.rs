@@ -64,6 +64,14 @@ async fn create(
     if req.title.trim().is_empty() {
         return Err(AppError::BadRequest("标题不能为空".into()));
     }
+    if req.title.len() > 500 {
+        return Err(AppError::BadRequest("标题不能超过500字".into()));
+    }
+    if let Some(ref desc) = req.description {
+        if desc.len() > 50000 {
+            return Err(AppError::BadRequest("描述过长".into()));
+        }
+    }
 
     let new = NewTask {
         id: req.id.unwrap_or_else(Uuid::new_v4),
@@ -118,6 +126,21 @@ async fn update(
     let exists: bool = diesel::select(diesel::dsl::exists(target())).get_result(&mut conn)?;
     if !exists {
         return Err(AppError::NotFound("任务不存在".into()));
+    }
+
+    // Validate input lengths
+    if let Some(ref title) = req.title {
+        if title.trim().is_empty() {
+            return Err(AppError::BadRequest("标题不能为空".into()));
+        }
+        if title.len() > 500 {
+            return Err(AppError::BadRequest("标题不能超过500字".into()));
+        }
+    }
+    if let Some(Some(ref desc)) = req.description {
+        if desc.len() > 50000 {
+            return Err(AppError::BadRequest("描述过长".into()));
+        }
     }
 
     if let Some(title) = &req.title {

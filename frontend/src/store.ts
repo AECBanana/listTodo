@@ -101,11 +101,11 @@ const store = createRoot(() => {
   );
 
   /** 重新从本地 DB 加载所有数据到信号 */
-  async function reloadFromDB() {
+  async function reloadFromDB(entity?: "project" | "task" | "tag") {
     const db = await getLocalDB();
-    setProjects(await db.getAllProjects());
-    setTasks(await db.getAllTasks());
-    setTags(await db.getAllTags());
+    if (!entity || entity === "project") setProjects(await db.getAllProjects());
+    if (!entity || entity === "task") setTasks(await db.getAllTasks());
+    if (!entity || entity === "tag") setTags(await db.getAllTags());
   }
 
   // ---- Mutations（本地优先 + 远端推送） ----
@@ -113,37 +113,37 @@ const store = createRoot(() => {
   async function saveProjectToLocal(project: Project) {
     const db = await getLocalDB();
     await db.saveProject(project);
-    await reloadFromDB();
+    await reloadFromDB("project");
   }
 
   async function deleteProjectFromLocal(id: string) {
     const db = await getLocalDB();
     await db.deleteProject(id);
-    await reloadFromDB();
+    await reloadFromDB("project");
   }
 
   async function saveTaskToLocal(task: Task) {
     const db = await getLocalDB();
     await db.saveTask(task);
-    await reloadFromDB();
+    await reloadFromDB("task");
   }
 
   async function deleteTaskFromLocal(id: string) {
     const db = await getLocalDB();
     await db.deleteTask(id);
-    await reloadFromDB();
+    await reloadFromDB("task");
   }
 
   async function saveTagToLocal(tag: Tag) {
     const db = await getLocalDB();
     await db.saveTag(tag);
-    await reloadFromDB();
+    await reloadFromDB("tag");
   }
 
   async function deleteTagFromLocal(id: string) {
     const db = await getLocalDB();
     await db.deleteTag(id);
-    await reloadFromDB();
+    await reloadFromDB("tag");
   }
 
   // ---- UI State ----
@@ -352,7 +352,7 @@ const store = createRoot(() => {
   });
 
   // ---- Computed: 筛选后的任务 ----
-  const filteredTasks = () => {
+  const filteredTasks = createMemo(() => {
     const all = tasks() ?? [];
     const view = taskView();
     const pid = selectedProjectId();
@@ -460,7 +460,7 @@ const store = createRoot(() => {
       return b.created_at.localeCompare(a.created_at);
     });
     return result;
-  };
+  });
 
   // ---- Computed: 分组 ----
   interface TaskGroup {
@@ -605,8 +605,8 @@ const store = createRoot(() => {
     try {
       await syncEngine.pull();
       await reloadFromDB();
-    } catch {
-      /* 静默 */
+    } catch (err) {
+      console.error("Sync failed:", err);
     }
   }
 

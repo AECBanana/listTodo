@@ -216,6 +216,7 @@ function GanttContent(props: {
   }
 
   onMount(() => {
+    gantt.destructor(); // clean up any previous instance
     gantt.config.date_format = "%Y-%m-%d %H:%i";
     gantt.config.scales = [
       { unit: "month", step: 1, format: "%Y年 %M" },
@@ -243,7 +244,10 @@ function GanttContent(props: {
     if (data.length > 0) gantt.parse({ data });
   });
 
-  onCleanup(() => gantt.clearAll());
+  onCleanup(() => {
+    gantt.clearAll();
+    gantt.destructor();
+  });
 
   return <div ref={container} style="flex:1;min-height:0;" />;
 }

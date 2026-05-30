@@ -41,14 +41,15 @@ async fn main() -> anyhow::Result<()> {
         .filter_map(|s| s.trim().parse().ok())
         .collect();
 
-    let cors = if allowed_origins.is_empty() {
-        CorsLayer::permissive()
-    } else {
-        CorsLayer::new()
-            .allow_origin(allowed_origins)
-            .allow_methods(Any)
-            .allow_headers(Any)
-    };
+    if allowed_origins.is_empty() {
+        tracing::error!("CORS_ORIGINS 解析失败或为空，无法启动服务");
+        anyhow::bail!("CORS_ORIGINS must contain at least one valid origin");
+    }
+
+    let cors = CorsLayer::new()
+        .allow_origin(allowed_origins)
+        .allow_methods(Any)
+        .allow_headers(Any);
 
     let app = Router::new()
         .nest("/api", handlers::router())
@@ -67,7 +68,11 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("服务启动 http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }
