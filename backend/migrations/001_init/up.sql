@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 用户表
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE users (
 );
 
 -- 清单
-CREATE TABLE projects (
+CREATE TABLE IF NOT EXISTS projects (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE projects (
 );
 
 -- 任务
-CREATE TABLE tasks (
+CREATE TABLE IF NOT EXISTS tasks (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title        TEXT NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE tasks (
 );
 
 -- 标签
-CREATE TABLE tags (
+CREATE TABLE IF NOT EXISTS tags (
     id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name     TEXT NOT NULL,
@@ -52,17 +52,17 @@ CREATE TABLE tags (
     UNIQUE(user_id, name)
 );
 
--- 索引
-CREATE INDEX idx_tasks_project_id ON tasks(project_id);
-CREATE INDEX idx_tasks_user_id    ON tasks(user_id);
-CREATE INDEX idx_tasks_parent_id  ON tasks(parent_id);
-CREATE INDEX idx_tasks_due_date   ON tasks(due_date);
-CREATE INDEX idx_projects_user_id ON projects(user_id);
-CREATE INDEX idx_projects_parent  ON projects(parent_id);
-CREATE INDEX idx_tags_user_id     ON tags(user_id);
+-- 索引（如果不存在则创建）
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_user_id    ON tasks(user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_parent_id  ON tasks(parent_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date   ON tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+CREATE INDEX IF NOT EXISTS idx_projects_parent  ON projects(parent_id);
+CREATE INDEX IF NOT EXISTS idx_tags_user_id     ON tags(user_id);
 
 -- 同步：记录已删除实体
-CREATE TABLE deleted_entities (
+CREATE TABLE IF NOT EXISTS deleted_entities (
     entity_type  TEXT NOT NULL,
     entity_id    UUID NOT NULL,
     user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
