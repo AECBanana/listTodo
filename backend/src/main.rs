@@ -36,7 +36,10 @@ async fn main() -> anyhow::Result<()> {
     drop(conn);
 
     let allowed_origins: Vec<HeaderValue> = std::env::var("CORS_ORIGINS")
-        .unwrap_or_else(|_| "http://localhost:5173,http://localhost:1420,tauri://localhost".into())
+        .unwrap_or_else(|_| {
+            "http://localhost:5173,http://localhost:1420,tauri://localhost,https://todo.rino.ink"
+                .into()
+        })
         .split(',')
         .filter_map(|s| s.trim().parse().ok())
         .collect();
