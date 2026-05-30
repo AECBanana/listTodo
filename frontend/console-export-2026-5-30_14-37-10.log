@@ -1,0 +1,2 @@
+已拦截跨源请求：同源策略禁止读取位于 https://todo.rino.ink/api/auth/pubkey 的远程资源。（原因：CORS 头缺少 'Access-Control-Allow-Origin'）。状态码：200。
+已拦截跨源请求：同源策略禁止读取位于 https://todo.rino.ink/api/auth/pubkey 的远程资源。（原因：CORS 请求未能成功）。状态码：(null)。
